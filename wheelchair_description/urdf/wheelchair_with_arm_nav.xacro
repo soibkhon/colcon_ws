@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<robot name="wheelchair_with_arm_nav" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Include base wheelchair and Kinova arm macro definitions -->
+  <xacro:include filename="$(find wheelchair_description)/urdf/wheelchair.xacro"/>
+  <xacro:include filename="$(find kinova_description)/urdf/m1n6s200.xacro"/>
+
+  <!-- Position the arm relative to the wheelchair base -->
+  <xacro:property name="joint_base_origin_xyz" value="0.3944 0.277084 0.6603"/>
+  <xacro:property name="joint_base_origin_rpy" value="0 0 1.5708"/>
+
+  <!-- Instantiate the Kinova arm on the wheelchair base -->
+  <xacro:m1n6s200 base_parent="base_link"/>
+
+</robot>

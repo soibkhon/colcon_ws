@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<robot name="wheelchair_with_arm" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Include individual components -->
+  <xacro:include filename="$(find wheelchair_description)/urdf/wheelchair.xacro"/>
+  <xacro:include filename="$(find kinova_description)/urdf/m1n6s200.xacro"/>
+
+
+  <joint name="wheelchair_arm_connection" type="fixed">
+    <origin xyz="0.3944 0.277084 0.6603" rpy="0 0 1.5708"/>
+    <parent link="base_link"/>
+    <child link="m1n6s200_link_base"/>
+  </joint>
+
+ 
+  <xacro:m1n6s200 base_parent="base_link"/>
+
+</robot>

@@ -1,0 +1,251 @@
+# nav2_local_only_params.yaml - Navigation relying primarily on local costmap
+bt_navigator:
+  ros__parameters:
+    use_sim_time: False
+    global_frame: odom  # Changed from 'map' to 'odom'
+    robot_base_frame: base_link
+    odom_topic: /odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    enable_groot_monitoring: True
+    groot_zmq_publisher_port: 1666
+    groot_zmq_server_port: 1667
+
+bt_navigator_navigate_through_poses_rclcpp_node:
+  ros__parameters:
+    use_sim_time: False
+
+bt_navigator_navigate_to_pose_rclcpp_node:
+  ros__parameters:
+    use_sim_time: False
+
+controller_server:
+  ros__parameters:
+    use_sim_time: False
+    controller_frequency: 15.0          # Reduced from 20.0 for more stable control
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.4
+    min_theta_velocity_threshold: 0.001
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    # Progress checker parameters - more lenient
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.4     # Increased from 0.3
+      movement_time_allowance: 25.0     # Increased from 20.0
+    
+    # Goal checker parameters - more lenient
+    general_goal_checker:
+      stateful: True
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.3            # Increased from 0.2
+      yaw_goal_tolerance: 0.3           # Increased from 0.2
+    
+    # DWB Local Planner - optimized for SAFE navigation
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: False
+      min_vel_x: 0.0
+      min_vel_y: 0.0
+      max_vel_x: 0.3                    # Reduced from 0.5 for safety
+      max_vel_y: 0.0
+      max_vel_theta: 0.25               # Reduced from 0.4 for safety
+      min_speed_xy: 0.0
+      max_speed_xy: 0.3                 # Reduced from 0.5
+      min_speed_theta: 0.0
+      acc_lim_x: 0.2                    # Reduced from 0.3 for smoother motion
+      acc_lim_y: 0.0
+      acc_lim_theta: 0.2                # Reduced from 0.3
+      decel_lim_x: -0.25                # Slightly increased deceleration
+      decel_lim_y: 0.0
+      decel_lim_theta: -0.25
+      
+      # Trajectory sampling parameters
+      vx_samples: 15                    # Reduced from 20 for efficiency
+      vy_samples: 1                     # Reduced from 20 (differential drive)
+      vtheta_samples: 25                # Reduced from 60 for efficiency
+      sim_time: 2.0                     # Reduced from 3.0 for responsiveness
+      linear_granularity: 0.02          # Finer granularity for smoother paths
+      angular_granularity: 0.01         # Finer granularity
+      transform_tolerance: 0.3          # Increased tolerance
+      xy_goal_tolerance: 0.3            # Increased from 0.2
+      trans_stopped_velocity: 0.1       # Reduced from 0.15
+      short_circuit_trajectory_evaluation: True
+      stateful: True
+      
+      # Critics optimized for SAFE navigation - KEY CHANGES HERE
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      BaseObstacle.scale: 0.1           # INCREASED from 0.03 - much higher obstacle avoidance!
+      BaseObstacle.sum_scores: False    # Don't sum obstacle scores
+      PathAlign.scale: 12.0             # Reduced from 20.0 - less rigid path following
+      PathAlign.forward_point_distance: 0.4  # Increased lookahead
+      GoalAlign.scale: 15.0             # Reduced from 30.0 - less aggressive goal seeking
+      GoalAlign.forward_point_distance: 0.4   # Increased lookahead
+      PathDist.scale: 15.0              # Reduced from 20.0
+      GoalDist.scale: 20.0              # Reduced from 40.0 - much less aggressive goal seeking
+      RotateToGoal.scale: 15.0          # Reduced from 25.0
+      RotateToGoal.slowing_factor: 8.0  # Increased from 5.0 - slower approach
+      RotateToGoal.lookahead_time: -1.0
+
+# Local costmap - SIGNIFICANTLY INCREASED SAFETY MARGINS
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 4.0             # Reduced from 5.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_link
+      use_sim_time: False
+      rolling_window: true
+      width: 8                          # Reduced from 10 for efficiency
+      height: 8                         # Reduced from 10
+      resolution: 0.05
+      
+      # Conservative wheelchair footprint with safety margin
+      footprint: "[[1.0, 0.3], [1.0, -0.3], [-0.2, -0.35], [-0.2, 0.35], [0.4, 0.35], [0.4, 0.45], [0.55, 0.45], [0.55, 0.35]]"
+      
+      plugins: ["voxel_layer", "inflation_layer"]
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 2.0        # Reduced from 3.0 for smoother gradients
+        inflation_radius: 0.6           # INCREASED from 0.25 - much larger safety buffer!
+      voxel_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: True
+        publish_voxel_map: True
+        origin_z: 0.0
+        z_resolution: 0.05
+        z_voxels: 16
+        max_obstacle_height: 2.0
+        mark_threshold: 0
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 4.0
+          raytrace_min_range: 0.3       # Increased from 0.2 for better self-detection avoidance
+          obstacle_max_range: 3.5
+          obstacle_min_range: 0.3       # Increased from 0.2
+      always_send_full_costmap: True
+
+# Minimal global costmap - just for compatibility
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 0.5  # Very slow updates
+      publish_frequency: 0.5
+      global_frame: odom     # Use odom instead of map
+      robot_base_frame: base_link
+      use_sim_time: False
+      resolution: 0.1        # Coarser resolution
+      track_unknown_space: false
+      rolling_window: true   # Make it rolling like local
+      width: 15              # Reduced from 20 for efficiency
+      height: 15
+      
+      # Same conservative footprint
+      footprint: "[[1.0, 0.3], [1.0, -0.3], [-0.2, -0.35], [-0.2, 0.35], [0.4, 0.35], [0.4, 0.45], [0.55, 0.45], [0.55, 0.35]]"
+      
+      plugins: ["obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 4.0
+          raytrace_min_range: 0.3       # Increased from 0.2
+          obstacle_max_range: 3.5
+          obstacle_min_range: 0.3       # Increased from 0.2
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 2.0        # Reduced from 3.0
+        inflation_radius: 0.6           # INCREASED from 0.25 - larger safety buffer!
+      always_send_full_costmap: True
+
+# More conservative planner
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 15.0    # Reduced from 20.0
+    use_sim_time: False
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.4                    # Reduced from 0.5 for more precise planning
+      use_astar: True                   # Changed to True for better path optimization
+      allow_unknown: False              # Changed to False - avoid unknown areas
+
+smoother_server:
+  ros__parameters:
+    use_sim_time: False
+    smoother_plugins: ["simple_smoother"]
+    simple_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-8                 # Higher precision
+      max_its: 1500                     # More iterations for smoother paths
+      do_refinement: True
+
+behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 8.0                # Reduced from 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors/DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+    assisted_teleop:
+      plugin: "nav2_behaviors/AssistedTeleop"
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_tolerance: 0.2            # Increased from 0.1
+    use_sim_time: false
+    simulate_ahead_time: 2.0            # Increased from 1.5 for better safety projection
+    max_rotational_vel: 0.25            # Reduced from 0.4
+    min_rotational_vel: 0.05            # Reduced from 0.1
+    rotational_acc_lim: 0.2             # Reduced from 0.3
+
+robot_state_publisher:
+  ros__parameters:
+    use_sim_time: False
+
+waypoint_follower:
+  ros__parameters:
+    use_sim_time: False
+    loop_rate: 15                       # Reduced from 20
+    stop_on_failure: false
+    waypoint_task_executor_plugin: "wait_at_waypoint"
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: True
+      waypoint_pause_duration: 200
+
+# Much more conservative velocity smoother
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: False
+    smoothing_frequency: 15.0           # Reduced from 20.0
+    scale_velocities: false
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.3, 0.0, 0.25]      # Reduced from [0.5, 0.0, 0.4]
+    min_velocity: [-0.2, 0.0, -0.25]    # Less aggressive reverse
+    max_accel: [0.2, 0.0, 0.2]          # Reduced from [0.3, 0.0, 0.3]
+    max_decel: [-0.25, 0.0, -0.25]      # Slightly more aggressive braking
+    odom_topic: "odom"
+    odom_duration: 0.15                 # Increased from 0.1 for smoother operation
+    deadband_velocity: [0.02, 0.0, 0.02]  # Added small deadband
+    velocity_timeout: 1.5               # Increased from 1.0

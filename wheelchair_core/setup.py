@@ -27,7 +27,6 @@ setup(
     maintainer_email='your_email@example.com',
     description='ROS2 autonomous wheelchair control with navigation',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'wheelchair_core_node = wheelchair_core.wheelchair_core_node:main',
@@ -40,6 +39,7 @@ setup(
             'collision_visualizer = wheelchair_core.collision_visualizer_node:main',
             'localization_manager = wheelchair_core.localization_manager:main',
             'localization_manager_2d = wheelchair_core.localization_manager_2d:main',
+            'ground_filter_node = wheelchair_core.ground_filter_node:main',
         ],
     },
 )

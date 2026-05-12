@@ -30,7 +30,7 @@
       "pattern_mode" : 0,
       "extrinsic_parameter" : {
         "roll": 0.0,
-        "pitch": 5.2,
+        "pitch": 5.32,
         "yaw": 0.0,
         "x": 0,
         "y": -217,
@@ -43,7 +43,7 @@
       "pattern_mode" : 0,
       "extrinsic_parameter" : {
         "roll": 0.0,
-        "pitch": 5.2,
+        "pitch": 5.32,
         "yaw": 0.0,
         "x": 0,
         "y": 217,

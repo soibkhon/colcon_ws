@@ -49,9 +49,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     map_file = LaunchConfiguration('map_file')
     nav_params_file = LaunchConfiguration('nav_params_file')
-    slam_mode = LaunchConfiguration('slam_mode', default='true')
     start_livox_driver = LaunchConfiguration('start_livox_driver', default='true')
-    enable_collision_viz = LaunchConfiguration('enable_collision_viz', default='false')
 
     # Default paths
     default_map_file = os.path.join(pkg_wheelchair_core, 'maps', 'rls_tables.yaml')
@@ -107,7 +105,7 @@ def generate_launch_description():
         }],
     )
 
-    # NOTE: map->odom transform is published by AMCL, not static
+    #map->odom transform is published by AMCL, not static
     # CRITICAL: Add transform from base_link to livox_frame
     static_transform_livox_cmd = Node(
         package='tf2_ros',
@@ -135,19 +133,6 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}],
     )
 
-    # Connect wheelchair base_link to kinova arm root frame
-    static_transform_base_to_root = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='static_transform_base_to_root',
-        arguments=[
-            '--x', '0.3944', '--y', '0.277084', '--z', '0.6603',
-            '--yaw', '1.5708', '--pitch', '0', '--roll', '0',
-            '--frame-id', 'base_link',
-            '--child-frame-id', 'root'
-        ],
-        parameters=[{'use_sim_time': use_sim_time}],
-    )
 
     pointcloud_to_laserscan_node = Node(
         package='pointcloud_to_laserscan',
@@ -234,7 +219,7 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
-    # NOTE: Lifecycle manager is handled by nav2_bringup, no need for separate one
+    
 
     return LaunchDescription([
         declare_start_livox_driver_cmd,

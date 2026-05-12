@@ -1,10 +1,12 @@
-# nav2_params.yaml - Map-based navigation WITHOUT localization for wheelchair
-# Uses global static map with local costmap for obstacle avoidance
-# Robot position is fixed at initial_pose (no AMCL localization)
+# nav2_params_dual_cloud.yaml
+# Same as nav2_params_map_rls.yaml but obstacle_layer uses two PointCloud2
+# sources (/cloud_right and /cloud_left) instead of a single LaserScan.
+# AMCL still uses /scan (derived from the right LiDAR by pointcloud_to_laserscan).
+
 bt_navigator:
   ros__parameters:
     use_sim_time: False
-    global_frame: map                   # Using map as global frame
+    global_frame: map
     robot_base_frame: base_link
     odom_topic: /odom
     bt_loop_duration: 10
@@ -71,47 +73,43 @@ bt_navigator_navigate_to_pose_rclcpp_node:
 controller_server:
   ros__parameters:
     use_sim_time: False
-    controller_frequency: 20.0          
-    min_x_velocity_threshold: 0.001
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.01
     min_y_velocity_threshold: 0.5
-    min_theta_velocity_threshold: 0.001
-    failure_tolerance: 0.3
+    min_theta_velocity_threshold: 0.01
+    failure_tolerance: 0.5
     progress_checker_plugin: "progress_checker"
     goal_checker_plugins: ["general_goal_checker"]
     controller_plugins: ["FollowPath"]
 
-    
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.4
-      movement_time_allowance: 30.0
-    
-    
+      required_movement_radius: 0.15
+      movement_time_allowance: 60.0
+
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
       xy_goal_tolerance: 0.2
       yaw_goal_tolerance: 0.1
-    
-    
+
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
-      min_vel_x: -0.15                  
+      min_vel_x: -0.3
       min_vel_y: 0.0
-      max_vel_x: 0.25                   
+      max_vel_x: 0.6
       max_vel_y: 0.0
-      max_vel_theta: 0.2                
+      max_vel_theta: 0.6
       min_speed_xy: 0.0
-      max_speed_xy: 0.4
+      max_speed_xy: 0.6
       min_speed_theta: 0.0
-      acc_lim_x: 0.15
+      acc_lim_x: 0.25
       acc_lim_y: 0.0
-      acc_lim_theta: 0.15
-      decel_lim_x: -0.2
+      acc_lim_theta: 0.25
+      decel_lim_x: -0.3
       decel_lim_y: 0.0
-      decel_lim_theta: -0.2
-      
+      decel_lim_theta: -0.3
       vx_samples: 8
       vy_samples: 1
       vtheta_samples: 40
@@ -123,146 +121,144 @@ controller_server:
       trans_stopped_velocity: 0.05
       short_circuit_trajectory_evaluation: True
       stateful: True
-      
-
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      
       BaseObstacle.scale: 0.02
-      
       PathAlign.scale: 32.0
       PathAlign.forward_point_distance: 0.1
-      
       GoalAlign.scale: 24.0
       GoalAlign.forward_point_distance: 0.1
-      
       PathDist.scale: 32.0
       GoalDist.scale: 24.0
-      
       RotateToGoal.scale: 32.0
       RotateToGoal.slowing_factor: 5.0
       RotateToGoal.lookahead_time: -1.0
-      
       Oscillation.scale: 1.0
 
-# Local costmap
 local_costmap:
   local_costmap:
     ros__parameters:
       update_frequency: 5.0
       publish_frequency: 2.0
-      global_frame: odom                # Local navigation in odom frame
+      global_frame: odom
       robot_base_frame: base_link
       use_sim_time: False
       rolling_window: true
-      width: 8                          
+      width: 8
       height: 8
-      resolution: 0.025                  
+      resolution: 0.025
       origin_x: 0.0
       origin_y: 0.0
-      robot_radius: 0.15                
-      
-      # Wheelchair footprint with safety margin
       footprint: "[[0.75, 0.33], [0.75, -0.33], [-0.2, -0.33], [-0.2, 0.33]]"
-      footprint_padding: 0.1           
-      
+      footprint_padding: 0.05
       plugins: ["obstacle_layer", "inflation_layer"]
-      
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
-        observation_sources: scan
+        observation_sources: cloud_right cloud_left
         footprint_clearing_enabled: true
         max_obstacle_height: 2.0
         min_obstacle_height: 0.0
-        scan:
-          topic: /scan
-          sensor_frame: livox_frame     
+        cloud_right:
+          topic: /cloud_right
+          sensor_frame: livox_frame
+          data_type: "PointCloud2"
           max_obstacle_height: 2.0
           min_obstacle_height: 0.0
           clearing: True
           marking: True
-          data_type: "LaserScan"
-          raytrace_max_range: 5.0       # Good clearing range
-          raytrace_min_range: 0.2       # Don't clear too close
-          obstacle_max_range: 4.5       # See obstacles far
-          obstacle_min_range: 0.2       # But not inside robot
-          inf_is_valid: true            # Handle inf values properly
-          
+          raytrace_max_range: 5.0
+          raytrace_min_range: 0.3
+          obstacle_max_range: 4.5
+          obstacle_min_range: 0.3
+        cloud_left:
+          topic: /cloud_left
+          sensor_frame: livox_frame
+          data_type: "PointCloud2"
+          max_obstacle_height: 2.0
+          min_obstacle_height: 0.0
+          clearing: True
+          marking: True
+          raytrace_max_range: 5.0
+          raytrace_min_range: 0.3
+          obstacle_max_range: 4.5
+          obstacle_min_range: 0.3
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 8.0
-        inflation_radius: 0.30
+        inflation_radius: 0.15
         inflate_unknown: true
         inflate_around_unknown: true
-        
       always_send_full_costmap: True
 
-# Global costmap - Using static map for global planning
 global_costmap:
   global_costmap:
     ros__parameters:
-      update_frequency: 2.0             # Slower update for global
+      update_frequency: 2.0
       publish_frequency: 1.0
-      global_frame: map                 # Use map frame for global navigation
+      global_frame: map
       robot_base_frame: base_link
       use_sim_time: False
-      rolling_window: false             # Static map mode
+      rolling_window: false
       track_unknown_space: true
-      robot_radius: 0.15
-      
-      # Same footprint
       footprint: "[[0.75, 0.33], [0.75, -0.33], [-0.2, -0.33], [-0.2, 0.33]]"
       footprint_padding: 0.05
-      
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
-      
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         enabled: True
         map_subscribe_transient_local: True
         map_topic: "/map"
-      
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
-        observation_sources: scan
+        observation_sources: cloud_right cloud_left
         footprint_clearing_enabled: true
         max_obstacle_height: 2.0
         min_obstacle_height: 0.0
-        scan:
-          topic: /scan
+        cloud_right:
+          topic: /cloud_right
           sensor_frame: livox_frame
+          data_type: "PointCloud2"
           max_obstacle_height: 2.0
           min_obstacle_height: 0.0
           clearing: True
           marking: True
-          data_type: "LaserScan"
           raytrace_max_range: 5.0
-          raytrace_min_range: 0.2
+          raytrace_min_range: 0.3
           obstacle_max_range: 4.5
-          obstacle_min_range: 0.2
-          inf_is_valid: true
-          
+          obstacle_min_range: 0.3
+        cloud_left:
+          topic: /cloud_left
+          sensor_frame: livox_frame
+          data_type: "PointCloud2"
+          max_obstacle_height: 2.0
+          min_obstacle_height: 0.0
+          clearing: True
+          marking: True
+          raytrace_max_range: 5.0
+          raytrace_min_range: 0.3
+          obstacle_max_range: 4.5
+          obstacle_min_range: 0.3
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 8.0
-        inflation_radius: 0.30
+        inflation_radius: 0.15
         inflate_unknown: true
         inflate_around_unknown: true
-        
       always_send_full_costmap: True
 
-# Global planner for map-based navigation
 planner_server:
   ros__parameters:
-    expected_planner_frequency: 10.0
+    expected_planner_frequency: 3.0
     use_sim_time: False
     planner_plugins: ["GridBased"]
     GridBased:
-      plugin: "nav2_navfn_planner/NavfnPlanner"
+      plugin: "nav2_smac_planner/SmacPlannerHybrid"
+      minimum_turning_radius: 0.4
+      change_penalty: 2.0
+      smooth_path: true
       tolerance: 0.5
-      use_astar: True                   # A* for better global planning with map
-      allow_unknown: false              # Don't plan through unknown space
+      allow_unknown: false
 
 smoother_server:
   ros__parameters:
@@ -292,31 +288,73 @@ behavior_server:
       plugin: "nav2_behaviors/Wait"
     assisted_teleop:
       plugin: "nav2_behaviors/AssistedTeleop"
-    global_frame: map                  # Use map for global navigation
+    global_frame: map
     robot_base_frame: base_link
     transform_tolerance: 0.1
     use_sim_time: false
     simulate_ahead_time: 2.0
-    max_rotational_vel: 0.2
-    min_rotational_vel: 0.05
-    rotational_acc_lim: 0.15
+    max_rotational_vel: 0.3
+    min_rotational_vel: 0.075
+    rotational_acc_lim: 0.25
 
 robot_state_publisher:
   ros__parameters:
     use_sim_time: False
 
-# Initial position configuration (no localization)
-# Robot will start at this fixed position in the map frame
-initial_pose:
-  x: 7.6      
-  y: 5.38    
-  z: 0.0
-  yaw: 0.0
+amcl:
+  ros__parameters:
+    use_sim_time: False
+    alpha1: 0.001
+    alpha2: 0.001
+    alpha3: 0.001
+    alpha4: 0.001
+    alpha5: 0.001
+    base_frame_id: "base_link"
+    beam_skip_distance: 0.5
+    beam_skip_error_threshold: 0.9
+    beam_skip_threshold: 0.3
+    do_beamskip: false
+    global_frame_id: "map"
+    lambda_short: 0.1
+    laser_likelihood_max_dist: 3.0
+    laser_max_range: 9.0
+    laser_min_range: 0.1
+    laser_model_type: "likelihood_field"
+    max_beams: 60
+    odom_frame_id: "odom"
+    pf_err: 0.01
+    pf_z: 0.995
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
+    resample_interval: 2
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    save_pose_rate: 0.5
+    sigma_hit: 0.15
+    tf_broadcast: true
+    transform_tolerance: 1.0
+    z_hit: 0.8
+    z_max: 0.05
+    z_rand: 0.1
+    z_short: 0.05
+    scan_topic: scan
+    set_initial_pose: true
+    initial_pose:
+      x: 7.626
+      y: 5.7
+      z: 0.0
+      yaw: 0.0
+    initial_cov_xx: 0.15
+    initial_cov_yy: 0.15
+    initial_cov_aa: 0.15
+    min_particles: 500
+    max_particles: 2000
+    update_min_a: 0.05
+    update_min_d: 0.05
 
 map_server:
   ros__parameters:
     use_sim_time: False
-    yaml_filename: ""  # Set via launch file
+    yaml_filename: "clear_lab.yaml"
 
 waypoint_follower:
   ros__parameters:
@@ -335,18 +373,17 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: false
     feedback: "OPEN_LOOP"
-    max_velocity: [0.3, 0.0, 0.3]      # Match controller velocities
-    min_velocity: [-0.2, 0.0, -0.3]
-    max_accel: [0.2, 0.0, 0.25]
-    max_decel: [-0.3, 0.0, -0.3]
+    max_velocity: [0.6, 0.0, 0.6]
+    min_velocity: [-0.3, 0.0, -0.45]
+    max_accel: [0.3, 0.0, 0.375]
+    max_decel: [-0.45, 0.0, -0.45]
     odom_topic: "odom"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
 
-# Lifecycle manager for map-based navigation (without localization)
 lifecycle_manager_navigation:
   ros__parameters:
     use_sim_time: False
     autostart: true
-    node_names: ['map_server', 'controller_server', 'planner_server', 'behavior_server', 'bt_navigator', 'waypoint_follower', 'velocity_smoother']
+    node_names: ['map_server', 'amcl', 'controller_server', 'planner_server', 'behavior_server', 'bt_navigator', 'waypoint_follower', 'velocity_smoother']
